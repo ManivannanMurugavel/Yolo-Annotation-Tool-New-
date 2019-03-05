@@ -38,7 +38,7 @@ class LabelTool():
         self.curimg_w = 0
         self.cur_cls_id = -1
         self.parent = master
-        self.parent.title("LabelTool")
+        self.parent.title("Yolo Annotation Tool")
         self.frame = Frame(self.parent)
         self.frame.pack(fill=BOTH, expand=1)
         self.parent.resizable(width = FALSE, height = FALSE)
