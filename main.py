@@ -7,13 +7,18 @@
 #
 #-------------------------------------------------------------------------------
 from __future__ import division
-from Tkinter import *
-import tkMessageBox
 from PIL import Image, ImageTk
 import os
 import sys
 import glob
 import random
+
+if(sys.version_info[0] == 2):
+    from Tkinter import *
+    import tkMessageBox
+elif(sys.version_info[0] == 3):
+    from tkinter import *
+    from tkinter import messagebox as tkMessageBox
 
 MAIN_COLORS = ['darkolivegreen', 'darkseagreen', 'darkorange', 'darkslategrey', 'darkturquoise', 'darkgreen', 'darkviolet', 'darkgray', 'darkmagenta', 'darkblue', 'darkkhaki','darkcyan', 'darkred',  'darksalmon', 'darkslategray', 'darkgoldenrod', 'darkgrey', 'darkslateblue', 'darkorchid','skyblue','yellow','orange','red','pink','violet','green','brown','gold','Olive','Maroon', 'blue', 'cyan', 'black','olivedrab', 'lightcyan', 'silver']
 
@@ -159,7 +164,7 @@ class LabelTool():
         self.imageDir = os.path.join(r'./Images', '%s' %(self.category))
         self.imageList = glob.glob(os.path.join(self.imageDir, '*.jpg'))
         if len(self.imageList) == 0:
-            print 'No .jpg images found in the specified dir!'
+            print('No .jpg images found in the specified dir!')
             tkMessageBox.showerror("Error!", message = "No .jpg images found in the specified dir!")
             return
 
@@ -174,7 +179,7 @@ class LabelTool():
         if not os.path.exists(self.outDir):
             os.mkdir(self.outDir)
         self.loadImage()
-        print '%d images loaded from %s' %(self.total, s)
+        print('%d images loaded from %s' %(self.total, s))
 
     def loadImage(self):
         # load image
@@ -215,7 +220,7 @@ class LabelTool():
                 b = (float(xmin), float(xmax), float(ymin), float(ymax))
                 bb = self.convert((self.curimg_w,self.curimg_h), b)
                 f.write(str(bboxcls) + " " + " ".join([str(a) for a in bb]) + '\n')
-        print 'Image No. %d saved' %(self.cur)
+        print('Image No. %d saved' %(self.cur))
 
 
     def mouseClick(self, event):
