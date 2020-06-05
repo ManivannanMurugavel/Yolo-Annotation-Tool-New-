@@ -7,7 +7,7 @@
 #
 #-------------------------------------------------------------------------------
 from __future__ import division
-from PIL import Image, ImageTk
+from PIL import Image as PImage, ImageTk
 import os
 import sys
 import glob
@@ -184,7 +184,7 @@ class LabelTool():
     def loadImage(self):
         # load image
         imagepath = self.imageList[self.cur - 1]
-        self.img = Image.open(imagepath)
+        self.img = PImage.open(imagepath)
         self.curimg_w, self.curimg_h = self.img.size
         self.tkimg = ImageTk.PhotoImage(self.img)
         self.mainPanel.config(width = max(self.tkimg.width(), 400), height = max(self.tkimg.height(), 400))
