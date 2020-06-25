@@ -17,6 +17,9 @@ run main.py
 run process.py
 ```
 
+NOTE: Images must be in .JPEG format. To convert images to this format you can use the following command(Ubuntu):<br>
+`mogrify -format jpg *.JPEG` or `mogrify -format jpg *.jpeg` or `mogrify -format jpg *.png`
+
 NOTE: If you use new annotation tool, please create classes.txt file and write all classes what you train the objects. Because i read the all classes from classes.txt.
 
 The dataset is ready for yolo training.
