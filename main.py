@@ -24,6 +24,10 @@ elif(sys.version_info[0] == 3):
     from tkinter import filedialog
 
 MAIN_COLORS = ['red','blue','black','yellow','green','darkolivegreen', 'darkseagreen', 'darkorange', 'darkslategrey', 'darkturquoise', 'darkgreen', 'darkviolet', 'darkgray', 'darkmagenta', 'darkblue', 'darkkhaki','darkcyan', 'darkred',  'darksalmon', 'darkslategray', 'darkgoldenrod', 'darkgrey', 'darkslateblue', 'darkorchid','skyblue','orange','pink','violet','brown','gold','Olive','Maroon', 'cyan','olivedrab', 'lightcyan', 'silver']
+
+selected_color = 'red'
+general_color = 'blue'
+
 print(type(MAIN_COLORS))
 home  = getenv("HOME")
 # image sizes for the examples
@@ -70,7 +74,7 @@ class LabelTool():
 
         # initialize mouse state
         self.STATE = {}
-        self.STATE['click'] = 0 # 0->click 1->select a class 2->last click
+        self.STATE['click'] = 0 #-1->None 0->click 1->last click 2->select a class
         self.STATE['x'], self.STATE['y'] = 0, 0
 
         # reference to bbox
@@ -80,6 +84,12 @@ class LabelTool():
         self.bboxListCls = []
         self.hl = None
         self.vl = None
+        self.textIdList = []
+        self.textId = None
+        self.textBboxIdList = []
+        self.textBboxId = None
+
+        self.select_box_id = -1
 
         # ----------------- GUI stuff ---------------------
         # dir entry & load
@@ -95,6 +105,7 @@ class LabelTool():
         # main panel for labeling
         self.mainPanel = Canvas(self.frame, cursor='tcross')
         self.mainPanel.bind("<Button-1>", self.mouseClick)
+        self.mainPanel.bind("<Button-2>", self.mouseRightClick)
         self.mainPanel.bind("<Motion>", self.mouseMove)
         self.parent.bind("<Escape>", self.cancelBBox)  # press <Espace> to cancel current bbox
         self.parent.bind("c", self.cancelBBox)
@@ -156,10 +167,10 @@ class LabelTool():
         return lambda:self.menu_label_select(cla)
 
     def menu_label_select(self, label):
-        # if self.STATE['click'] == 1:
+        print('menu label click')
         ind = classes.index(label)
         self.cur_cls_id = ind
-        self.STATE['click'] = 2
+        self.STATE['click'] = 1
 
     def popupmenu(self, event):
         self.menu.post(event.x_root,event.y_root)
@@ -258,105 +269,139 @@ class LabelTool():
                 boxIndex =self.bboxList.index(box)
                 break
         
+        
+        if boxIndex == -1:
+            self.STATE['click'] = 0
+        else:
+            self.STATE['click'] = 2
+
+        self.select_box_id = boxIndex
+
         return boxIndex
     
-    def mouseClick(self, event):
-        print(f'state: {self.STATE["click"]}')
-        # if self.STATE['click'] == 0:
+    def mouseRightClick(self, event):
+        print('right click')
         
-        boxIndex = self.cursorInBox(event.x, event.y)
-        print(f'boxIndex: {boxIndex}')
-        if self.STATE['click'] == 0:
+        if self.STATE['click'] == 2 and self.select_box_id != -1:
+            tlx, tly, brx, bry = self.bboxList[self.select_box_id]
+
+            if tlx<event.x and event.x<brx and tly<event.y and event.y<bry:
+                self.mainPanel.delete(self.bboxIdList[self.select_box_id])
+                self.bboxIdList.pop(self.select_box_id)
+                self.bboxList.pop(self.select_box_id)
+                self.bboxListCls.pop(self.select_box_id)
+                self.listbox.delete(self.select_box_id)
+                self.mainPanel.delete(self.textIdList[self.select_box_id])
+                self.textIdList.pop(self.select_box_id)
+                self.mainPanel.delete(self.textBboxIdList[self.select_box_id])
+                self.textBboxIdList.pop(self.select_box_id)
+
+
             for i in range(len(self.bboxList)):
                 tlx, tly, brx, bry = self.bboxList[i]
                 self.mainPanel.delete(self.bboxIdList[i])
-                if i == boxIndex:
-                    self.bboxIdList[i] = self.mainPanel.create_rectangle(tlx, tly,
-                                                                brx, bry,
-                                                                width = 2,
-                                                                outline = COLORS[self.bboxListCls[i]],
-                                                                dash=(4,4))
-                else:
-                    self.bboxIdList[i] = self.mainPanel.create_rectangle(tlx, tly,
-                                                                brx, bry,
-                                                                width = 2,
-                                                                outline = COLORS[self.bboxListCls[i]]
-                                                                )
-        if self.STATE['click'] == 0 and boxIndex == -1:
+                self.bboxIdList[i] = self.mainPanel.create_rectangle(tlx, tly,
+                                                            brx, bry,
+                                                            width = 2,
+                                                            outline = COLORS[self.bboxListCls[i]]
+                                                            )
+
+        self.select_box_id = -1
+        self.STATE['click'] = 0
+            
+
+    def mouseClick(self, event):
+        boxIndex = -1
+        if self.STATE['click'] == 0 or self.STATE['click'] == 2:
+            boxIndex = self.cursorInBox(event.x, event.y)
+        
+        print(f'boxIndex: {boxIndex}, STATE:{self.STATE["click"]}')
+        
+        #if self.STATE['click'] == 0:
+        for i in range(len(self.bboxList)):
+            tlx, tly, brx, bry = self.bboxList[i]
+            self.mainPanel.delete(self.bboxIdList[i])
+            self.mainPanel.delete(self.textBboxIdList[i])
+            if i == boxIndex:
+                self.bboxIdList[i] = self.mainPanel.create_rectangle(tlx, tly,
+                                                            brx, bry,
+                                                            width = 2,
+                                                            outline = selected_color,
+                                                            dash=(4,4))
+                
+                self.textBboxIdList[i] = self.mainPanel.create_rectangle(self.mainPanel.bbox(self.textIdList[i]), fill = selected_color, outline = selected_color)
+                self.mainPanel.tag_lower(self.textBboxIdList[i], self.textIdList[i])
+
+                
+            
+            else:
+                self.bboxIdList[i] = self.mainPanel.create_rectangle(tlx, tly,
+                                                            brx, bry,
+                                                            width = 2,
+                                                            outline = general_color
+                                                            )
+                
+                self.textBboxIdList[i] = self.mainPanel.create_rectangle(self.mainPanel.bbox(self.textIdList[i]), fill = general_color, outline = general_color)
+                self.mainPanel.tag_lower(self.textBboxIdList[i], self.textIdList[i])
+                
+        
+        if self.STATE['click'] == 0:
             self.STATE['x'], self.STATE['y'] = event.x, event.y
             self.popupmenu(event)
-            # self.STATE['click'] = 1
+            
 
-        elif self.STATE['click'] == 2:
+        elif self.STATE['click'] == 1:
             x1, x2 = min(self.STATE['x'], event.x), max(self.STATE['x'], event.x)
             y1, y2 = min(self.STATE['y'], event.y), max(self.STATE['y'], event.y)
             self.bboxList.append((x1, y1, x2, y2))
             self.bboxListCls.append(self.cur_cls_id)
             self.bboxIdList.append(self.bboxId)
             self.bboxId = None
+            self.textIdList.append(self.textId)
+            self.textId = None
+            self.textBboxIdList.append(self.textBboxId)
+            self.textBboxId = None
+
             self.listbox.insert(END, '(%d, %d) -> (%d, %d) -> (%s)' %(x1, y1, x2, y2, classes[self.cur_cls_id]))
             self.listbox.itemconfig(len(self.bboxIdList) - 1, fg = COLORS[self.cur_cls_id])
         
             self.STATE['click'] = 0
-
-    # def mouseClick(self, event):
-    #     print(f'state: {self.STATE["click"]}')
-    #     # if self.STATE['click'] == 0:
         
-    #     boxIndex = self.cursorInBox(event.x, event.y)
-    #     print(f'boxIndex: {boxIndex}')
-    #     if boxIndex != -1:
-    #         self.mainPanel.delete(self.bboxIdList[boxIndex])
-    #         del self.bboxIdList[boxIndex]
-    #         tlx, tly, brx, bry = self.bboxList[boxIndex]
-
-    #         self.bboxId = self.mainPanel.create_rectangle(tlx, tly,
-    #                                                         brx, bry,
-    #                                                         width = 2,
-    #                                                         outline = COLORS[self.bboxListCls[boxIndex]],
-    #                                                         dash=(4,4))
-            
-    #         self.bboxIdList.insert(boxIndex, self.bboxId)
-    #         self.bboxId = None
-    #     else:
-    #         for i in range(len(self.bboxList)):
-    #             tlx, tly, brx, bry = self.bboxList[i]
-    #             self.mainPanel.delete(self.bboxIdList[i])
-    #             self.bboxIdList[i] = self.mainPanel.create_rectangle(tlx, tly,
-    #                                                         brx, bry,
-    #                                                         width = 2,
-    #                                                         outline = COLORS[self.bboxListCls[i]])
-
-    #         if self.STATE['click'] == 0:
-    #             self.STATE['x'], self.STATE['y'] = event.x, event.y
-    #             self.popupmenu(event)
-    #             # self.STATE['click'] = 1
-
-    #         elif self.STATE['click'] == 2:
-    #             x1, x2 = min(self.STATE['x'], event.x), max(self.STATE['x'], event.x)
-    #             y1, y2 = min(self.STATE['y'], event.y), max(self.STATE['y'], event.y)
-    #             self.bboxList.append((x1, y1, x2, y2))
-    #             self.bboxListCls.append(self.cur_cls_id)
-    #             self.bboxIdList.append(self.bboxId)
-    #             self.bboxId = None
-    #             self.listbox.insert(END, '(%d, %d) -> (%d, %d) -> (%s)' %(x1, y1, x2, y2, classes[self.cur_cls_id]))
-    #             self.listbox.itemconfig(len(self.bboxIdList) - 1, fg = COLORS[self.cur_cls_id])
-            
-    #             self.STATE['click'] = 0
+        elif self.STATE['click'] == 2 and boxIndex == -1:
+            self.STATE['click'] = 0
 
     def mouseMove(self, event):
         self.disp.config(text = 'x: %.3d, y: %.3d' %(event.x, event.y))
-        
-        if 2 == self.STATE['click']:
+        if self.tkimg:
+            if self.hl:
+                self.mainPanel.delete(self.hl)
+            self.hl = self.mainPanel.create_line(0, event.y, self.tkimg.width(), event.y, width = 2, fill='black')
+            if self.vl:
+                self.mainPanel.delete(self.vl)
+            self.vl = self.mainPanel.create_line(event.x, 0, event.x, self.tkimg.height(), width = 2, fill='black')
+            
+
+        if 1 == self.STATE['click']:
             if self.bboxId:
                 self.mainPanel.delete(self.bboxId)
+        
             self.bboxId = self.mainPanel.create_rectangle(self.STATE['x'], self.STATE['y'], \
                                                             event.x, event.y, \
                                                             width = 2, \
-                                                            outline = COLORS[self.cur_cls_id])
+                                                            outline = general_color)
+            if self.textId:
+                self.mainPanel.delete(self.textId)
+            self.textId = self.mainPanel.create_text(min(self.STATE['x'], event.x), min(self.STATE['y'], event.y), text=classes[self.cur_cls_id], anchor='nw', font=('Times', 24))
+            
+            if self.textBboxId:
+                self.mainPanel.delete(self.textBboxId)
+            self.textBboxId = self.mainPanel.create_rectangle(self.mainPanel.bbox(self.textId), fill = general_color, outline =general_color)
+            
+            self.mainPanel.tag_lower(self.textBboxId, self.textId)
+            
 
     def cancelBBox(self, event):
-        if 2 == self.STATE['click']:
+        if 1 == self.STATE['click']:
             if self.bboxId:
                 self.mainPanel.delete(self.bboxId)
                 self.bboxId = None
@@ -365,7 +410,6 @@ class LabelTool():
     def delBBox(self):
         sel = self.listbox.curselection()
         
-
         if len(sel) != 1 :
             return
         idx = int(sel[0])
@@ -376,13 +420,23 @@ class LabelTool():
         self.bboxListCls.pop(idx)
         self.listbox.delete(idx)
 
+        self.mainPanel.delete(self.textIdList[idx])
+        self.textIdList.pop(idx)
+        self.mainPanel.delete(self.textBboxIdList[idx])
+        self.textBboxIdList.pop(idx)
+
     def clearBBox(self):
         for idx in range(len(self.bboxIdList)):
             self.mainPanel.delete(self.bboxIdList[idx])
+            self.mainPanel.delete(self.textIdList[idx])
+            self.mainPanel.delete(self.textBboxIdList[idx])
+
         self.listbox.delete(0, len(self.bboxList))
         self.bboxIdList = []
         self.bboxList = []
         self.bboxListCls = []
+        self.textIdList = []
+        self.textBboxIdList = []
 
     def prevImage(self, event = None):
         self.saveImage()

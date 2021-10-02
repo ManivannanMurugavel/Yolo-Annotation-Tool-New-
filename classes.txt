@@ -1,2 +1,4 @@
 cat
 dog
+tiger
+zbra
