@@ -3,7 +3,7 @@
 # Purpose:     Label object bboxes for ImageNet Detection data
 # Author:      Qiushi
 # Created:     06/06/2014
-
+# Editor:      shen0512
 #
 #-------------------------------------------------------------------------------
 from __future__ import division
@@ -13,7 +13,7 @@ import sys
 import glob
 import random
 from os import getenv
-from collections import OrderedDict
+# from collections import OrderedDict
 
 if(sys.version_info[0] == 2):
     from Tkinter import *
@@ -28,10 +28,9 @@ MAIN_COLORS = ['red','blue','black','yellow','green','darkolivegreen', 'darkseag
 selected_color = 'red'
 general_color = 'blue'
 
-print(type(MAIN_COLORS))
 home  = getenv("HOME")
 # image sizes for the examples
-window_w = 1280
+window_w = 720
 window_h = 720
 
 classes = []
@@ -44,16 +43,15 @@ except IOError as io:
     print("[ERROR] Please create classes.txt and put your all classes")
     sys.exit(1)
 # COLORS = random.sample(set(MAIN_COLORS), len(classes))
-COLORS = MAIN_COLORS#set(MAIN_COLORS)#, len(classes)
+COLORS = MAIN_COLORS #set(MAIN_COLORS)#, len(classes)
 
 
 class LabelTool():
     def __init__(self, master):
         # set up the main frame
-        self.curimg_h = 0
-        self.curimg_w = 0
-        self.cur_cls_id = -1
         self.parent = master
+        self.parent.protocol("WM_DELETE_WINDOW", self.on_close)
+
         self.parent.title("Yolo Annotation Tool")
         self.frame = Frame(self.parent)
         self.frame.pack(fill=BOTH, expand=1)
@@ -62,37 +60,28 @@ class LabelTool():
         # initialize global state
         self.imageDir = ''
         self.imageList= []
-        self.egDir = ''
-        self.egList = []
-        self.outDir = ''
         self.cur = 0
         self.total = 0
-        self.category = 0
-        self.imagename = ''
-        self.labelfilename = ''
         self.tkimg = None
+        
+        self.select_box_id = -1
+        self.cur_label_id = -1
+        self.annData = []
 
         # initialize mouse state
         self.STATE = {}
         self.STATE['x'], self.STATE['y'] = 0, 0
-        
         self.STATE['click'] = 0
-        self.STATE['r_click'] = 0
-        self.STATE['m_click'] = 0
 
         # reference to bbox
-        self.bboxIdList = []
-        self.bboxId = None
-        self.bboxList = []
-        self.bboxListCls = []
         self.hl = None
         self.vl = None
+        self.bboxIdList = []
+        self.bboxId = None
         self.textIdList = []
         self.textId = None
         self.textBboxIdList = []
         self.textBboxId = None
-
-        self.select_box_id = -1
 
         # ----------------- GUI stuff ---------------------
         # dir entry & load
@@ -100,10 +89,8 @@ class LabelTool():
         self.label.grid(row = 0, column = 0, sticky = E)
         self.entry = Entry(self.frame)
         self.entry.grid(row = 0, column = 1, sticky = W+E)
-        self.explBtn = Button(self.frame,  
-                        text = "b", 
-                        command = self.dispPath)
-        self.explBtn.grid(row = 0, column = 2, sticky = W+S+E)
+        self.explBtn = Button(self.frame, text = "Browser", command = self.loadData)
+        self.explBtn.grid(row = 0, column = 2, sticky = W+S+E,columnspan=2)
 
         # main panel for labeling
         self.mainPanel = Canvas(self.frame, cursor='tcross')
@@ -111,12 +98,14 @@ class LabelTool():
         self.mainPanel.bind("<Button-2>", self.mouseRightClick)
         self.mainPanel.bind("<Button-3>", self.mouseWheelClick)
         self.mainPanel.bind("<Motion>", self.mouseMove)
+
+        # self.mainPanel.configure(bg='cyan') # for test
         
         self.parent.bind("<Escape>", self.cancelBBox)  # press <Espace> to cancel current bbox
-        self.parent.bind("c", self.cancelBBox)
+        self.parent.bind("c", self.cancelBBox) # press 'c' to cancel current bbox
         self.parent.bind("a", self.prevImage) # press 'a' to go backforward
         self.parent.bind("d", self.nextImage) # press 'd' to go forward
-        self.mainPanel.grid(row = 1, column = 1, rowspan = 6, sticky = W+N)
+        self.mainPanel.grid(row = 1, column = 1, rowspan = 7, sticky = W+N)
         
         self.lb1 = Label(self.frame, text = 'Bounding boxes:')
         self.lb1.grid(row = 2, column = 2,  sticky = W+N,columnspan=2)
@@ -125,15 +114,20 @@ class LabelTool():
         self.listbox = Listbox(self.frame, width = 30, height = 12)
         self.listbox.grid(row = 3, column = 2, sticky = N,columnspan=2)
         self.listbox.bind('<<ListboxSelect>>',self.listboxSelect)
-
+     
         self.btnDel = Button(self.frame, text = 'Delete', command = self.delBBox)
         self.btnDel.grid(row = 4, column = 2, sticky = W+E+N,columnspan=2)
         self.btnClear = Button(self.frame, text = 'ClearAll', command = self.clearBBox)
         self.btnClear.grid(row = 5, column = 2, sticky = W+E+N,columnspan=2)
+        self.btnSave = Button(self.frame, text = 'Save', command = self.saveData)
+        self.btnSave.grid(row = 6, column = 2, sticky = W+E+N,columnspan=2)
 
         # control panel for image navigation
         self.ctrPanel = Frame(self.frame)
-        self.ctrPanel.grid(row = 6, column = 1, columnspan = 2, sticky = W+E)
+        self.ctrPanel.grid(row = 8, column = 1, columnspan = 2, sticky = W+E)
+        # self.filenameText = StringVar(self.parent) 888
+        self.filenameLabel = Label(self.ctrPanel, text = "filename")
+        self.filenameLabel.pack(side = LEFT, padx = 5)
         self.prevBtn = Button(self.ctrPanel, text='<< Prev', width = 10, command = self.prevImage)
         self.prevBtn.pack(side = LEFT, padx = 5, pady = 3)
         self.nextBtn = Button(self.ctrPanel, text='Next >>', width = 10, command = self.nextImage)
@@ -146,16 +140,9 @@ class LabelTool():
         self.idxEntry.pack(side = LEFT)
         self.goBtn = Button(self.ctrPanel, text = 'Go', command = self.gotoImage)
         self.goBtn.pack(side = LEFT)
-        # example pannel for illustration
-        self.egPanel = Frame(self.frame, border = 10)
-        self.egPanel.grid(row = 1, column = 0, rowspan = 5, sticky = N)
-        self.tmpLabel2 = Label(self.egPanel, text = "Examples:")
-        self.tmpLabel2.pack(side = TOP, pady = 5)
-        self.egLabels = []
-        for i in range(3):
-            self.egLabels.append(Label(self.egPanel))
-            self.egLabels[-1].pack(side = TOP)
-
+        self.findBtn = Button(self.ctrPanel, text = 'Find', command = self.findNoAnnImage)
+        self.findBtn.pack(side = LEFT)
+        
         # display mouse position
         self.disp = Label(self.ctrPanel, text='')
         self.disp.pack(side = RIGHT)
@@ -164,8 +151,8 @@ class LabelTool():
         self.frame.columnconfigure(1, weight = 1)
         self.frame.rowconfigure(4, weight = 1)
 
+        #
         self.menu = Menu(root, tearoff=False)
-        
         for cla in classes:
             self.menu.add_command(label=cla, command=self.menu_command(cla))
 
@@ -173,166 +160,164 @@ class LabelTool():
         return lambda:self.menu_label_select(cla)
 
     def menu_label_select(self, label):
-        print('menu label click')
-        self.cur_cls_id = classes.index(label)
+        self.cur_label_id = classes.index(label)
 
     def popupmenu(self, event):
-        self.cur_cls_id = -1
+        self.cur_label_id = -1
         self.menu.post(event.x_root,event.y_root)
-
-    def dispPath(self):
-        directory = filedialog.askdirectory(initialdir = home)
-        self.entry.delete(0,END)
-        self.entry.insert(0,directory)
-        self.loadDir()
     
     def loadData(self):
-        
+        directory = filedialog.askdirectory(initialdir = home)
+        self.entry.delete(0, END)
+        self.entry.insert(0, directory)
+
         try:
-            s = self.entry.get()
-            print(s)
+            self.imageDir = self.entry.get()
             self.parent.focus()
-            self.category = s
-            # directory = filedialog.askdirectory(initialdir = home)
         except ValueError as ve:
             tkMessageBox.showerror("Error!", message = "The folder should be numbers")
             return
         
-        if not os.path.isdir('%s' % self.category):
+        if not os.path.isdir('%s' % self.imageDir):
            tkMessageBox.showerror("Error!", message = "The specified dir doesn't exist!")
            return
-        
-        # get image list
-        self.imageDir = os.path.join(r'./Images', '%s' %(self.category))
-        self.imageList = glob.glob(os.path.join(self.imageDir, '*.jpg'))
+
+        imageFormat = ['*.jpg', '*.JPG', '*.png', '*.PNG', '*.jpeg', '*.JPEG']
+        for format in imageFormat:
+            self.imageList += glob.glob(os.path.join(self.imageDir, format))
+
         if len(self.imageList) == 0:
             print('No .jpg images found in the specified dir!')
             tkMessageBox.showerror("Error!", message = "No .jpg images found in the specified dir!")
             return
 
-        # default to the 1st image in the collection
         self.cur = 1
         self.total = len(self.imageList)
 
-        # set up output dir
-        if not os.path.exists('./Labels'):
-            os.mkdir('./Labels')
-        self.outDir = os.path.join(r'./Labels', '%s' %(self.category))
-        if not os.path.exists(self.outDir):
-            os.mkdir(self.outDir)
-        self.loadImage()
-        print('%d images loaded from %s' %(self.total, s))
+        # chech train file
+        if os.path.isfile(os.path.join(self.imageDir, 'train.txt')):
+            with open(os.path.join(self.imageDir, 'train.txt'), 'r', encoding='utf-8') as f:
+                data = f.readlines()
+            
+            for d in data:
+                d = d.replace('\n', '')
+                d_splite = d.split(' ')
+                tmpDict={}
+                tmpDict['file_path'] = d_splite[0]
+                tmpDict['width'] = -1
+                tmpDict['height'] = -1
+                tmpDict['bbox'] = []
+                tmpDict['label'] = []
+                tmpDict['isDeconvert'] = []
 
-    def loadDir(self, dbg = False):
-        if not dbg:
-            try:
-                s = self.entry.get()
-                print(s)
-                self.parent.focus()
-                self.category = s
-            except ValueError as ve:
-                tkMessageBox.showerror("Error!", message = "The folder should be numbers")
-                return
+                for i in range(1, len(d_splite)):
+                    tmpList = [int(b) for b in d_splite[i].split(',')]
+                    tmpDict['bbox'].append(tmpList[0:4].copy())
+                    tmpDict['label'].append(tmpList[4])
+                    tmpDict['isDeconvert'].append(False)
+                
+                self.annData.append(tmpDict.copy())
+            
+            # check 
+            if len(self.annData) != len(self.imageList):
+                self.annData = []
+                for imagepath in self.imageList:
+                    tmpDict={}
+                    tmpDict['file_path'] = imagepath
+                    tmpDict['width'] = -1
+                    tmpDict['height'] = -1
+                    tmpDict['bbox'] = []
+                    tmpDict['label'] = []
+                    tmpDict['isDeconvert'] = []
+
+                    self.annData.append(tmpDict.copy())
+        else:
+            # file not exist
+            for imagepath in self.imageList:
+                tmpDict={}
+                tmpDict['file_path'] = imagepath
+                tmpDict['width'] = -1
+                tmpDict['height'] = -1
+                tmpDict['bbox'] = []
+                tmpDict['label'] = []
+                tmpDict['isDeconvert'] = []
+
+                self.annData.append(tmpDict.copy())
         
-        if not os.path.isdir('%s' % self.category):
-           tkMessageBox.showerror("Error!", message = "The specified dir doesn't exist!")
-           return
-
-        # get image list
-        self.imageDir = os.path.join(r'./Images', '%s' %(self.category))
-        self.imageList = glob.glob(os.path.join(self.imageDir, '*.jpg'))
-        if len(self.imageList) == 0:
-            print('No .jpg images found in the specified dir!')
-            tkMessageBox.showerror("Error!", message = "No .jpg images found in the specified dir!")
-            return
-
-        # default to the 1st image in the collection
-        self.cur = 1
-        self.total = len(self.imageList)
-
-        # set up output dir
-        if not os.path.exists('./Labels'):
-            os.mkdir('./Labels')
-        self.outDir = os.path.join(r'./Labels', '%s' %(self.category))
-        if not os.path.exists(self.outDir):
-            os.mkdir(self.outDir)
         self.loadImage()
-        print('%d images loaded from %s' %(self.total, s))
-
+    
     def loadImage(self):
-        # load image
-        imagepath = self.imageList[self.cur - 1]
+        imagepath = self.annData[self.cur - 1]['file_path']
+
         self.img = PImage.open(imagepath)
+        self.annData[self.cur - 1]['width'] = self.img.size[0]
+        self.annData[self.cur - 1]['height'] = self.img.size[1]
+
         self.img = self.img.resize((window_w, window_h))
-        self.curimg_w, self.curimg_h = self.img.size
         self.tkimg = ImageTk.PhotoImage(self.img)
-        self.mainPanel.config(width = max(self.tkimg.width(), window_w), height = max(self.tkimg.height(), window_h))
+        self.mainPanel.config(width = window_w, height = window_h)
         self.mainPanel.create_image(0, 0, image = self.tkimg, anchor=NW)
         self.progLabel.config(text = "%04d/%04d" %(self.cur, self.total))
+        self.filenameLabel.config(text=f'filename: {os.path.basename(imagepath)}')
 
         # load labels
-        self.clearBBox()
+        self.resetView()
+        
+        bboxes = self.annData[self.cur - 1]['bbox']
+        labels = self.annData[self.cur - 1]['label']
+        isDeconvert = self.annData[self.cur - 1]['isDeconvert']
+        for i in range(len(bboxes)):
+            if not isDeconvert[i]:
+                bboxes[i] = self.deconvert(bboxes[i], self.annData[self.cur - 1]['width'], self.annData[self.cur - 1]['height'])
+                isDeconvert[i] = True
 
-        self.imagename = os.path.splitext(os.path.basename(imagepath))[0]
-        labelname = self.imagename + '.txt'
-        self.labelfilename = os.path.join(self.outDir, labelname)
-        if os.path.exists(self.labelfilename):
-            with open(self.labelfilename) as f:
-                for (i, line) in enumerate(f):
-                    yolo_data = line.strip().split()
-                    # print(yolo_data)
-                    tmp = self.deconvert(yolo_data[1:])
-                    self.bboxList.append(tuple(tmp))
-                    self.bboxListCls.append(yolo_data[0])
-                    tmpId = self.mainPanel.create_rectangle(tmp[0], tmp[1], \
-                                                            tmp[2], tmp[3], \
-                                                            width = 2, \
-                                                            outline = COLORS[int(yolo_data[0])])
-                    
-                    self.bboxIdList.append(tmpId)
-                    self.listbox.insert(END, '(%s): (%d, %d) -> (%d, %d)' %(tmp[0], tmp[1], tmp[2], tmp[3], classes[int(yolo_data[0])]))
-                    self.listbox.itemconfig(len(self.bboxIdList) - 1, fg = general_color)
-                       
-    def saveImage(self):
-        with open(self.labelfilename, 'w') as f:
-            for bbox,bboxcls in zip(self.bboxList,self.bboxListCls):
-                xmin,ymin,xmax,ymax = bbox
-                b = (float(xmin), float(xmax), float(ymin), float(ymax))
-                bb = self.convert((self.curimg_w,self.curimg_h), b)
-                f.write(str(bboxcls) + " " + " ".join([str(a) for a in bb]) + '\n')
-        print('Image No. %d saved' %(self.cur))
+            tmpId = self.mainPanel.create_rectangle(bboxes[i][0], bboxes[i][1], \
+                                                    bboxes[i][2], bboxes[i][3], \
+                                                    width = 3, \
+                                                    outline = general_color)
+            
+            self.bboxIdList.append(tmpId)
+            self.listbox.insert(END, '(%s): (%d, %d) -> (%d, %d)' %(classes[labels[i]], bboxes[i][0], bboxes[i][1], bboxes[i][2], bboxes[i][3]))
+            self.listbox.itemconfig(len(self.bboxIdList) - 1, fg = general_color)
+            
+            # label text
+            tmpTextId = self.mainPanel.create_text(bboxes[i][0], bboxes[i][1], text=classes[labels[i]], anchor='nw', font=('Times', 24))
+            tmpTextBboxId = self.mainPanel.create_rectangle(self.mainPanel.bbox(tmpTextId), fill = general_color, outline =general_color)
+            self.mainPanel.tag_lower(tmpTextBboxId, tmpTextId)
+            
+            self.textIdList.append(tmpTextId)
+            self.textBboxIdList.append(tmpTextBboxId)
     
     def cursorInBbox(self, event):
-        print('drawBbox')
+
         self.select_box_id = -1
         
-        bboxArea = {i: (self.bboxList[i][2]-self.bboxList[i][0])*(self.bboxList[i][3]-self.bboxList[i][1]) for i in range(len(self.bboxList))}
+        bboxes = self.annData[self.cur - 1]['bbox']
+        bboxArea = {i: (bboxes[i][2]-bboxes[i][0])*(bboxes[i][3]-bboxes[i][1]) for i in range(len(bboxes))}
         bboxArea = dict(sorted(bboxArea.items(), key= lambda item: item[1]))
 
         for key in bboxArea.keys():
-            tlx, tly, brx, bry = self.bboxList[key]
+            tlx, tly, brx, bry = bboxes[key]
             if tlx<event.x and event.x<brx and tly<event.y and event.y<bry:
                 self.select_box_id = key
                 break
 
     def drawBbox(self):
-        print('drawBbox')
-        print(f'select box id: {self.select_box_id}')
-        
         if self.listbox.size() > 0:
             self.listbox.select_clear(0, 'end')
         
-        for i in range(len(self.bboxList)):
-            tlx, tly, brx, bry = self.bboxList[i]
+        bboxes = self.annData[self.cur - 1]['bbox']
+        for i in range(len(bboxes)):
+            tlx, tly, brx, bry = bboxes[i]
             self.mainPanel.delete(self.bboxIdList[i])
             self.mainPanel.delete(self.textBboxIdList[i])
 
             if i == self.select_box_id:
                 self.bboxIdList[i] = self.mainPanel.create_rectangle(tlx, tly,
                                                             brx, bry,
-                                                            width = 2,
+                                                            width = 3,
                                                             outline = selected_color,
-                                                            dash=(4,4))
+                                                            dash=(5,5))
                 
                 self.textBboxIdList[i] = self.mainPanel.create_rectangle(self.mainPanel.bbox(self.textIdList[i]), fill = selected_color, outline = selected_color)
                 self.mainPanel.tag_lower(self.textBboxIdList[i], self.textIdList[i])
@@ -342,7 +327,7 @@ class LabelTool():
             else:
                 self.bboxIdList[i] = self.mainPanel.create_rectangle(tlx, tly,
                                                             brx, bry,
-                                                            width = 2,
+                                                            width = 3,
                                                             outline = general_color
                                                             )
                 
@@ -350,26 +335,31 @@ class LabelTool():
                 self.mainPanel.tag_lower(self.textBboxIdList[i], self.textIdList[i])
 
     def listboxSelect(self, event):
-        print('listbox click')
         sel = self.listbox.curselection()
         self.select_box_id = -1
         
         if len(sel) > 0:
             self.select_box_id = sel[0]
         
-        self.drawBbox()
+            self.drawBbox()
 
-    def mouseWheelClick(self, event):
-        print('mouse wheel click')
+    def mouseWheelClick(self, event):      
+        if len(self.annData) == 0:
+            return
+
+        bboxes = self.annData[self.cur - 1]['bbox']
+        labels = self.annData[self.cur - 1]['label']
+        isDeconvert = self.annData[self.cur - 1]['isDeconvert']
 
         if self.select_box_id != -1:
-            tlx, tly, brx, bry = self.bboxList[self.select_box_id]
+            tlx, tly, brx, bry = bboxes[self.select_box_id]
 
             if tlx<event.x and event.x<brx and tly<event.y and event.y<bry:
                 self.mainPanel.delete(self.bboxIdList[self.select_box_id])
                 self.bboxIdList.pop(self.select_box_id)
-                self.bboxList.pop(self.select_box_id)
-                self.bboxListCls.pop(self.select_box_id)
+                bboxes.pop(self.select_box_id)
+                labels.pop(self.select_box_id)
+                isDeconvert.pop(self.select_box_id)
                 self.listbox.delete(self.select_box_id)
                 self.mainPanel.delete(self.textIdList[self.select_box_id])
                 self.textIdList.pop(self.select_box_id)
@@ -379,15 +369,17 @@ class LabelTool():
         self.select_box_id = -1
         self.drawBbox()
 
-    def mouseRightClick(self, event):
-        print('right click')
-        
+    def mouseRightClick(self, event):        
+        if len(self.annData) == 0:
+            return
+
         self.select_box_id = -1
         self.cursorInBbox(event)
         self.drawBbox()
 
-    def mouseClick(self, event):           
-        print(f'self.STATE[click]: {self.STATE["click"]}')
+    def mouseClick(self, event):
+        if len(self.annData) == 0:
+            return
         
         self.select_box_id = -1
         self.drawBbox()
@@ -395,15 +387,18 @@ class LabelTool():
         if self.STATE['click'] == 0:
             self.STATE['x'], self.STATE['y'] = event.x, event.y
             self.popupmenu(event)
-        elif self.STATE['click'] == 1 and self.cur_cls_id == -1:
+
+        elif self.STATE['click'] == 1 and self.cur_label_id == -1:
             self.STATE['click'] = 0
             self.STATE['x'], self.STATE['y'] = event.x, event.y
             self.popupmenu(event)
-        elif self.STATE['click'] == 1 and self.cur_cls_id != -1:
+
+        elif self.STATE['click'] == 1 and self.cur_label_id != -1:
             x1, x2 = min(self.STATE['x'], event.x), max(self.STATE['x'], event.x)
             y1, y2 = min(self.STATE['y'], event.y), max(self.STATE['y'], event.y)
-            self.bboxList.append((x1, y1, x2, y2))
-            self.bboxListCls.append(self.cur_cls_id)
+            self.annData[self.cur - 1]['bbox'].append((x1, y1, x2, y2))
+            self.annData[self.cur - 1]['isDeconvert'].append(True)
+            self.annData[self.cur - 1]['label'].append(self.cur_label_id)
             self.bboxIdList.append(self.bboxId)
             self.bboxId = None
             self.textIdList.append(self.textId)
@@ -411,7 +406,7 @@ class LabelTool():
             self.textBboxIdList.append(self.textBboxId)
             self.textBboxId = None
 
-            self.listbox.insert(END, '(%s): (%d, %d) -> (%d, %d)' %(classes[self.cur_cls_id], x1, y1, x2, y2))
+            self.listbox.insert(END, '(%s): (%d, %d) -> (%d, %d)' %(classes[self.cur_label_id], x1, y1, x2, y2))
             self.listbox.itemconfig(len(self.bboxIdList) - 1, fg = general_color)
             
         
@@ -419,26 +414,27 @@ class LabelTool():
 
     def mouseMove(self, event):
         self.disp.config(text = 'x: %.3d, y: %.3d' %(event.x, event.y))
+
         if self.tkimg:
             if self.hl:
                 self.mainPanel.delete(self.hl)
-            self.hl = self.mainPanel.create_line(0, event.y, self.tkimg.width(), event.y, width = 2, fill='black')
+            self.hl = self.mainPanel.create_line(0, event.y, self.tkimg.width(), event.y, width = 3, fill='black')
             if self.vl:
                 self.mainPanel.delete(self.vl)
-            self.vl = self.mainPanel.create_line(event.x, 0, event.x, self.tkimg.height(), width = 2, fill='black')
+            self.vl = self.mainPanel.create_line(event.x, 0, event.x, self.tkimg.height(), width = 3, fill='black')
             
         
-        if self.STATE['click'] == 1 and self.cur_cls_id != -1:
+        if self.STATE['click'] == 1 and self.cur_label_id != -1:
             if self.bboxId:
                 self.mainPanel.delete(self.bboxId)
         
             self.bboxId = self.mainPanel.create_rectangle(self.STATE['x'], self.STATE['y'], \
                                                             event.x, event.y, \
-                                                            width = 2, \
+                                                            width = 3, \
                                                             outline = general_color)
             if self.textId:
                 self.mainPanel.delete(self.textId)
-            self.textId = self.mainPanel.create_text(min(self.STATE['x'], event.x), min(self.STATE['y'], event.y), text=classes[self.cur_cls_id], anchor='nw', font=('Times', 24))
+            self.textId = self.mainPanel.create_text(min(self.STATE['x'], event.x), min(self.STATE['y'], event.y), text=classes[self.cur_label_id], anchor='nw', font=('Times', 24))
             
             if self.textBboxId:
                 self.mainPanel.delete(self.textBboxId)
@@ -447,11 +443,23 @@ class LabelTool():
             self.mainPanel.tag_lower(self.textBboxId, self.textId)
             
     def cancelBBox(self, event):
-        if 1 == self.STATE['click']:
-            if self.bboxId:
-                self.mainPanel.delete(self.bboxId)
-                self.bboxId = None
-                self.STATE['click'] = 0
+        if len(self.annData) == 0:
+            return
+
+        if self.bboxId:
+            self.mainPanel.delete(self.bboxId)
+            self.bboxId = None
+        if self.textId:
+            self.mainPanel.delete(self.textId)
+            self.textId = None
+        if self.textBboxId:
+            self.mainPanel.delete(self.textBboxId)
+            self.textBboxId = None
+        
+        self.select_box_id= -1
+        self.drawBbox()
+
+        self.STATE['click'] = 0
 
     def delBBox(self):
         sel = self.listbox.curselection()
@@ -461,31 +469,47 @@ class LabelTool():
         idx = int(sel[0])
         self.mainPanel.delete(self.bboxIdList[idx])
         self.bboxIdList.pop(idx)
-        self.bboxList.pop(idx)
-        print(self.bboxListCls,idx)
-        self.bboxListCls.pop(idx)
+        self.annData[self.cur - 1]['bbox'].pop(idx)
+        self.annData[self.cur - 1]['label'].pop(idx)
+        self.annData[self.cur - 1]['isDeconvert'].pop(idx)
         self.listbox.delete(idx)
-
         self.mainPanel.delete(self.textIdList[idx])
         self.textIdList.pop(idx)
         self.mainPanel.delete(self.textBboxIdList[idx])
         self.textBboxIdList.pop(idx)
-
-    def clearBBox(self):
+    
+    def resetView(self):
         for idx in range(len(self.bboxIdList)):
             self.mainPanel.delete(self.bboxIdList[idx])
             self.mainPanel.delete(self.textIdList[idx])
             self.mainPanel.delete(self.textBboxIdList[idx])
 
-        self.listbox.delete(0, len(self.bboxList))
+        self.listbox.delete(0, len(self.annData[self.cur - 1]['bbox']))
         self.bboxIdList = []
-        self.bboxList = []
-        self.bboxListCls = []
+
         self.textIdList = []
         self.textBboxIdList = []
 
+    def clearBBox(self):
+        if len(self.annData) == 0:
+            return
+        
+        for idx in range(len(self.bboxIdList)):
+            self.mainPanel.delete(self.bboxIdList[idx])
+            self.mainPanel.delete(self.textIdList[idx])
+            self.mainPanel.delete(self.textBboxIdList[idx])
+
+        self.listbox.delete(0, len(self.annData[self.cur - 1]['bbox']))
+        self.bboxIdList = []
+        self.annData[self.cur - 1]['bbox'] = []
+        self.annData[self.cur - 1]['label'] = []
+        self.annData[self.cur - 1]['isDeconvert'] = []
+        self.textIdList = []
+        self.textBboxIdList = []
+
+        tkMessageBox.showerror("Information!", message = "Clear")
+
     def prevImage(self, event = None):
-        self.saveImage()
         if self.cur > 1:
             self.cur -= 1
             self.loadImage()
@@ -493,7 +517,6 @@ class LabelTool():
             tkMessageBox.showerror("Information!", message = "This is first image")
 
     def nextImage(self, event = None):
-        self.saveImage()
         if self.cur < self.total:
             self.cur += 1
             self.loadImage()
@@ -501,42 +524,73 @@ class LabelTool():
             tkMessageBox.showerror("Information!", message = "All images annotated")
 
     def gotoImage(self):
-        idx = int(self.idxEntry.get())
-        if 1 <= idx and idx <= self.total:
-            self.saveImage()
-            self.cur = idx
+        if self.idxEntry.get() != '':
+            idx = int(self.idxEntry.get())
+            if 1 <= idx and idx <= self.total:
+                self.cur = idx
+                self.loadImage()
+
+    def findNoAnnImage(self):
+        goImageIdx = -1
+        for i in range(len(self.annData)):
+            bboxes = self.annData[i]['bbox']
+            
+            if len(bboxes) == 0:
+                goImageIdx = i + 1
+                break
+        
+        if goImageIdx == -1:
+            tkMessageBox.showerror("Information!", message = "All images annotated")
+        else:
+            self.cur = goImageIdx
             self.loadImage()
 
-    def convert(self,size, box):
-        dw = 1./size[0]
-        dh = 1./size[1]
-        x = (box[0] + box[1])/2.0
-        y = (box[2] + box[3])/2.0
-        w = box[1] - box[0]
-        h = box[3] - box[2]
-        x = x*dw
-        w = w*dw
-        y = y*dh
-        h = h*dh
-        return (x,y,w,h)
+
+    def convert(self, annBbox, img_w, img_h):
+        tlx = int(annBbox[0] * 1. * img_w / window_w)
+        tly = int(annBbox[1] * 1. * img_h / window_h)
+        brx = int(annBbox[2] * 1. * img_w / window_w)
+        bry = int(annBbox[3] * 1. * img_h / window_h)
+
+        return [min(tlx, brx), min(tly, bry), max(tlx, brx), max(tly, bry)]
     
-    def deconvert(self,annbox):
-        ox = float(annbox[0])
-        oy = float(annbox[1])
-        ow = float(annbox[2])
-        oh = float(annbox[3])
-        x = ox*self.curimg_w
-        y = oy*self.curimg_h
-        w = ow*self.curimg_w
-        h = oh*self.curimg_h
-        xmax = (((2*x)+w)/2)
-        xmin = xmax-w
-        ymax = (((2*y)+h)/2)
-        ymin = ymax-h
-        return [int(xmin),int(ymin),int(xmax),int(ymax)]
+    def deconvert(self, annBbox, img_w, img_h):
+        tlx = int(annBbox[0] * 1. * window_w / img_w)
+        tly = int(annBbox[1] * 1. * window_h / img_h)
+        brx = int(annBbox[2] * 1. * window_w / img_w)
+        bry = int(annBbox[3] * 1. * window_h / img_h)
+
+        return [min(tlx, brx), min(tly, bry), max(tlx, brx), max(tly, bry)]
+    
+    def saveData(self):
+        if len(self.annData) == 0:
+            return
+        
+        with open(os.path.join(self.imageDir,'train.txt'), 'w', encoding='utf-8') as f:
+            for data in self.annData:
+                tmpOutput = data['file_path']
+                for i in range(len(data['bbox'])):
+                    if data['isDeconvert'][i]:
+                        bbox = self.convert(data['bbox'][i], data['width'], data['height'])
+                    else:
+                        bbox = data['bbox'][i].copy()
+
+                    label = data['label'][i]
+
+                    tmpOutput += f' {bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]},{label}'
+
+                f.write(tmpOutput)
+                f.write('\n')
+        
+        tkMessageBox.showerror("Information!", message = "Save all annotations")
+
+    def on_close(self):
+        self.saveData()
+        self.parent.destroy()
+
 
 if __name__ == '__main__':
     root = Tk()
     tool = LabelTool(root)
-    root.resizable(width = False, height = False)
+    # root.resizable(width = False, height = True)
     root.mainloop()
