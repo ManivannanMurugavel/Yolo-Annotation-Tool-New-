@@ -484,7 +484,7 @@ class LabelTool():
             self.mainPanel.delete(self.textIdList[idx])
             self.mainPanel.delete(self.textBboxIdList[idx])
 
-        self.listbox.delete(0, len(self.annData[self.cur - 1]['bbox']))
+        self.listbox.delete(0, self.listbox.size())
         self.bboxIdList = []
 
         self.textIdList = []
@@ -507,21 +507,21 @@ class LabelTool():
         self.textIdList = []
         self.textBboxIdList = []
 
-        tkMessageBox.showerror("Information!", message = "Clear")
+        tkMessageBox.showinfo("Information!", message = "Clear")
 
     def prevImage(self, event = None):
         if self.cur > 1:
             self.cur -= 1
             self.loadImage()
         else:
-            tkMessageBox.showerror("Information!", message = "This is first image")
+            tkMessageBox.showinfo("Information!", message = "This is first image")
 
     def nextImage(self, event = None):
         if self.cur < self.total:
             self.cur += 1
             self.loadImage()
         else:
-            tkMessageBox.showerror("Information!", message = "All images annotated")
+            tkMessageBox.showinfo("Information!", message = "All images annotated")
 
     def gotoImage(self):
         if self.idxEntry.get() != '':
@@ -540,7 +540,7 @@ class LabelTool():
                 break
         
         if goImageIdx == -1:
-            tkMessageBox.showerror("Information!", message = "All images annotated")
+            tkMessageBox.showinfo("Information!", message = "All images annotated")
         else:
             self.cur = goImageIdx
             self.loadImage()
@@ -582,7 +582,7 @@ class LabelTool():
                 f.write(tmpOutput)
                 f.write('\n')
         
-        tkMessageBox.showerror("Information!", message = "Save all annotations")
+        tkMessageBox.showinfo("Information!", message = "Save all annotations")
 
     def on_close(self):
         self.saveData()
