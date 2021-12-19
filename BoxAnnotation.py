@@ -176,114 +176,6 @@ class LabelTool():
         for label in all_label:
             self.menu.add_command(label=label, command=self.menu_command(label))
 
-        # text window
-        self.textWindow = None
-
-    # Text Window
-    def textWindowHandler(self, x1, y1, x2, y2, objId=None):
-        def enterBtn_click():
-            inputText = textEntry.get()
-            tmp_labelId = all_label.index(textCombobox.get())
-
-            if objId == None:
-                self.annData[self.cur - 1]['bbox'].append((x1, y1, x2, y2))
-                self.annData[self.cur - 1]['label'].append(tmp_labelId)
-                self.annData[self.cur - 1]['text'].append(inputText)
-
-                self.bboxIdList.append(self.bboxId)
-                self.bboxId = None
-                self.textIdList.append(self.textId)
-                self.textId = None
-                self.textBboxIdList.append(self.textBboxId)
-                self.textBboxId = None
-                
-                self.listbox.insert(END, '(%s: %s)-->(%d, %d, %d, %d)' %(textCombobox.get(), inputText, x1, y1, x2, y2))
-                self.listbox.itemconfig(len(self.bboxIdList) - 1, fg = general_color)
-            else:
-                self.annData[self.cur - 1]['label'][objId] = tmp_labelId
-                self.annData[self.cur - 1]['text'][objId] = inputText
-                
-                self.listbox.delete(objId)
-                self.listbox.insert(objId, '(%s: %s)-->(%d, %d, %d, %d)' %(textCombobox.get(), inputText, x1, y1, x2, y2))
-                self.listbox.itemconfig(objId, fg = general_color)
-                
-                
-            self.textWindow.destroy()
-            self.draw()
-        
-        def textEntry_listener(event):
-            enterBtn_click()
-        
-        def cancelBtn_click():
-            self.textWindowOnClose()
-        
-        self.textWindow = tkinter.Toplevel(self.parent)
-        self.textWindow.title('Text Annontation')
-        self.textWindow.protocol("WM_DELETE_WINDOW", self.textWindowOnClose)
-        self.textWindow.resizable(width=False, height=False)
-
-        textCanvas = Canvas(self.textWindow)
-        textCanvas.grid(row = 0, column = 0, sticky = W+E, columnspan=2)
-        tkimgCrop = numpy.array(self.img).copy()
-        if x1 == None and y1 == None and x2 == None and y2 == None:
-            bbox = self.annData[self.cur - 1]['bbox'][self.cur_objId]
-            tkimgCrop = tkimgCrop[bbox[1]:bbox[3], bbox[0]:bbox[2]]
-        else:
-            tkimgCrop = tkimgCrop[y1:y2, x1:x2]
-
-        textCanvas.config(width = tkimgCrop.shape[1], height = tkimgCrop.shape[0])
-        PIL_tkimgCrop = ImageTk.PhotoImage(PImage.fromarray(tkimgCrop))
-        textCanvas.create_image(0, 0, image = PIL_tkimgCrop, anchor=NW)
-
-        label = Label(self.textWindow, text=f'label: ')
-        label.grid(row=1, column=0, sticky=W)
-        textCombobox = ttk.Combobox(self.textWindow, values=all_label, state='readonly', exportselection=False)
-        textCombobox.grid(row=1, column=1, sticky=W)
-        
-        if objId != None:
-            textCombobox.current(self.annData[self.cur - 1]["label"][objId])
-        else:
-            textCombobox.current(self.cur_labelId)
-
-        textLabel = Label(self.textWindow, text=f'text: ')
-        textLabel.grid(row=2, column=0, sticky=W)
-        textEntry = Entry(self.textWindow)
-        textEntry.bind("<Return>", textEntry_listener)
-        textEntry.grid(row = 2, column = 1, sticky = W+E)
-        textEntry.focus()
-        
-        if objId != None:
-            textEntry.insert(0, self.annData[self.cur - 1]['text'][objId])
-        
-        enterBtn = Button(self.textWindow, text='Enter', command = enterBtn_click)
-        enterBtn.grid(row = 2, column= 2, sticky= W+E)
-        cancelBtn = Button(self.textWindow, text='Cancel', command = cancelBtn_click)
-        cancelBtn.grid(row = 2, column= 3, sticky= W+E)
-        
-        # reset global variable
-        # self.left_state = 0
-        # self.right_state = 0
-        self.cur_labelId = -1
-        self.cur_objId = -1
-        # self.tmp_x = 0
-        # self.tmp_y = 0
-
-        self.textWindow.mainloop()
-        
-    
-    def textWindowOnClose(self):
-        self.checkTextWindowExist()
-        # self.draw()
-    
-    def checkTextWindowExist(self):
-        if self.textWindow != None and self.textWindow.winfo_exists():
-            self.textWindow.destroy()
-            self.resetDrawing()
-            self.draw()
-            return True
-        
-        return False
-
     # Main annotation window
     def menu_command(self, label):
         return lambda:self.menu_label_select(label)
@@ -342,7 +234,6 @@ class LabelTool():
                 tmpDict['height'] = tmpImg.height
                 tmpDict['bbox'] = []
                 tmpDict['label'] = []
-                tmpDict['text'] = []
                 
                 self.annData.append(tmpDict.copy())
         
@@ -373,7 +264,6 @@ class LabelTool():
 
         bboxes = self.annData[self.cur - 1]['bbox']
         labels = self.annData[self.cur - 1]['label']
-        all_text = self.annData[self.cur - 1]['text']
         for i in range(len(bboxes)):
             tmpId = self.mainPanel.create_rectangle(bboxes[i][0], bboxes[i][1], \
                                                     bboxes[i][2], bboxes[i][3], \
@@ -381,7 +271,7 @@ class LabelTool():
                                                     outline = general_color)
             
             self.bboxIdList.append(tmpId)
-            self.listbox.insert(END, '(%s: %s)-->(%d, %d, %d, %d)' %(all_label[labels[i]], all_text[i], bboxes[i][0], bboxes[i][1], bboxes[i][2], bboxes[i][3]))
+            self.listbox.insert(END, '(%s)-->(%d, %d, %d, %d)' %(all_label[labels[i]], bboxes[i][0], bboxes[i][1], bboxes[i][2], bboxes[i][3]))
             self.listbox.itemconfig(len(self.bboxIdList) - 1, fg = general_color)
             
             # label text
@@ -428,7 +318,6 @@ class LabelTool():
             
                 bboxes = self.annData[self.cur - 1]['bbox']
                 labels = self.annData[self.cur - 1]['label']
-                all_text = self.annData[self.cur - 1]['text']
                 for i in range(len(bboxes)):
                     tlx, tly, brx, bry = bboxes[i]
                     self.mainPanel.delete(self.bboxIdList[i])
@@ -457,9 +346,6 @@ class LabelTool():
                         self.mainPanel.tag_lower(self.textBboxIdList[i], self.textIdList[i])            
             
     def listboxSelect(self, event):
-        
-        self.checkTextWindowExist()
-
         box_select = self.listbox.curselection()
         self.cur_objId = -1
         if len(box_select) > 0:
@@ -512,7 +398,7 @@ class LabelTool():
                 self.draw()
 
     def mouseRightClick(self, event):
-        if self.checkTextWindowExist() or len(self.annData) == 0 :
+        if len(self.annData) == 0 :
             return
         
         self.cursorInBbox(event)
@@ -524,7 +410,7 @@ class LabelTool():
         self.draw()
         
     def mouseLeftClick(self, event):
-        if self.checkTextWindowExist() or self.right_state >= 1 or len(self.annData) == 0:
+        if self.right_state >= 1 or len(self.annData) == 0:
             return
 
         if self.left_state == 0:
@@ -543,7 +429,22 @@ class LabelTool():
                 x1, x2 = min(self.tmp_x, event.x), max(self.tmp_x, event.x)
                 y1, y2 = min(self.tmp_y, event.y), max(self.tmp_y, event.y)
                 self.left_state = 0
-                self.textWindowHandler(x1, y1, x2, y2)
+
+                self.annData[self.cur - 1]['bbox'].append((x1, y1, x2, y2))
+                self.annData[self.cur - 1]['label'].append(self.cur_labelId)
+
+                self.bboxIdList.append(self.bboxId)
+                self.bboxId = None
+                self.textIdList.append(self.textId)
+                self.textId = None
+                self.textBboxIdList.append(self.textBboxId)
+                self.textBboxId = None
+                
+                self.listbox.insert(END, '(%s)-->(%d, %d, %d, %d)' %(all_label[self.cur_labelId], x1, y1, x2, y2))
+                self.listbox.itemconfig(len(self.bboxIdList) - 1, fg = general_color)
+
+                self.cur_labelId = -1
+                self.cur_objId = -1
                 
                 
 
@@ -564,7 +465,6 @@ class LabelTool():
         self.draw(event.x, event.y)
             
     def cancelBBox(self, event):
-        self.checkTextWindowExist()
         self.resetDrawing()
 
     def resetDrawing(self):
@@ -590,7 +490,6 @@ class LabelTool():
         self.bboxIdList.pop(delId)
         self.annData[self.cur - 1]['bbox'].pop(delId)
         self.annData[self.cur - 1]['label'].pop(delId)
-        self.annData[self.cur - 1]['text'].pop(delId)
         self.listbox.delete(delId)
         self.mainPanel.delete(self.textIdList[delId])
         self.textIdList.pop(delId)
@@ -605,7 +504,7 @@ class LabelTool():
     def btnDel_lisenter(self):
         
         sel = self.listbox.curselection() 
-        if self.checkTextWindowExist() or len(sel) != 1 :
+        if len(sel) != 1 :
             return
         
         idx = int(sel[0])
@@ -614,7 +513,7 @@ class LabelTool():
 
     def clearALL(self):
 
-        if self.checkTextWindowExist() or len(self.annData) == 0:
+        if len(self.annData) == 0:
             return
         
         for idx in range(len(self.bboxIdList)):
@@ -626,7 +525,6 @@ class LabelTool():
         self.bboxIdList = []
         self.annData[self.cur - 1]['bbox'] = []
         self.annData[self.cur - 1]['label'] = []
-        self.annData[self.cur - 1]['text'] = []
         self.textIdList = []
         self.textBboxIdList = []
         self.left_state = 0
@@ -637,8 +535,6 @@ class LabelTool():
         self.tmp_y = 0
 
     def prevImage(self, event = None):
-        self.checkTextWindowExist()
-
         if self.cur > 1:
             self.cur -= 1
             self.loadImage()
@@ -646,8 +542,6 @@ class LabelTool():
             tkMessageBox.showinfo("Information!", message = "This is first image")
 
     def nextImage(self, event = None):
-        self.checkTextWindowExist()
-
         if self.cur < self.total:
             self.cur += 1
             self.loadImage()
@@ -664,8 +558,6 @@ class LabelTool():
             self.delBBox(self.cur_objId)
 
     def gotoImage(self):
-        self.checkTextWindowExist()
-
         if self.idxEntry.get() != '':
             idx = int(self.idxEntry.get())
             if 1 <= idx and idx <= self.total:
@@ -673,8 +565,6 @@ class LabelTool():
                 self.loadImage()
 
     def findNoAnnImage(self):
-        self.checkTextWindowExist()
-
         goImageIdx = -1
         for i in range(len(self.annData)):
             bboxes = self.annData[i]['bbox']
@@ -712,8 +602,6 @@ class LabelTool():
         return [min(tlx, brx), min(tly, bry), max(tlx, brx), max(tly, bry)]
     
     def saveData(self):
-        self.checkTextWindowExist()
-
         if len(self.annData) == 0:
             return
 
