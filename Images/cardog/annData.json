@@ -1,0 +1,96 @@
+[
+  {
+    "filename": "cat-1.jpg",
+    "boxes": [
+      [
+        [
+          46,
+          33
+        ],
+        [
+          225,
+          33
+        ],
+        [
+          225,
+          217
+        ],
+        [
+          46,
+          217
+        ]
+      ]
+    ],
+    "labels": [
+      1
+    ],
+    "text": [
+      "ff"
+    ]
+  },
+  {
+    "filename": "cat-2.jpg",
+    "boxes": [
+      [
+        [
+          72,
+          107
+        ],
+        [
+          166,
+          107
+        ],
+        [
+          166,
+          163
+        ],
+        [
+          72,
+          163
+        ]
+      ]
+    ],
+    "labels": [
+      3
+    ],
+    "text": [
+      "eye"
+    ]
+  },
+  {
+    "filename": "cat-3.jpg",
+    "boxes": [],
+    "labels": [],
+    "text": []
+  },
+  {
+    "filename": "cat-4.jpg",
+    "boxes": [],
+    "labels": [],
+    "text": []
+  },
+  {
+    "filename": "cat-5.jpg",
+    "boxes": [],
+    "labels": [],
+    "text": []
+  },
+  {
+    "filename": "dog-1.jpg",
+    "boxes": [],
+    "labels": [],
+    "text": []
+  },
+  {
+    "filename": "dog-2.jpg",
+    "boxes": [],
+    "labels": [],
+    "text": []
+  },
+  {
+    "filename": "dog-3.jpg",
+    "boxes": [],
+    "labels": [],
+    "text": []
+  }
+]
